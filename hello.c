@@ -12,9 +12,17 @@ typedef struct ConditionCodes{
 int main(){
     setbuf(stdout, NULL);
     struct ConditionCodes cc;
-    cc.cy = 1;
+    cc.cy = 0;
 
-    printf("carry flag = %d, set = %d\n", cc.cy, (cc.cy | 1));
+    uint8_t a = 0xab;
+    printf("a = 0x%x\n", a);
+
+    uint8_t bit = (a & 0x1);
+
+    a = a & (bit << 7);
+    cc.cy = (0 != bit);
+
+    printf("a = 0x%x, carry = %d\n", a, cc.cy);
 
     return 0;
 }
