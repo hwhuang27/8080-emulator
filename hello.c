@@ -12,12 +12,9 @@ typedef struct ConditionCodes{
 int main(){
     setbuf(stdout, NULL);
     struct ConditionCodes cc;
+    cc.cy = 1;
 
-    uint8_t a = 0xab;
-    uint8_t b = 0xcd;
-    uint16_t ret = a << 8 | b;
-
-    printf("ret address: 0x%x\n", ret);
+    printf("carry flag = %d, set = %d\n", cc.cy, (cc.cy | 1));
 
     return 0;
 }
