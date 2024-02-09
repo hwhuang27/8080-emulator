@@ -1,5 +1,4 @@
-# Space Invaders Emulator
-Space Invaders Emulator using the Intel 8080 processor
+# Intel 8080 CPU Emulator
 
 # References
 - Implemented with 8080 guide on emulator101 (http://emulator101.com)
