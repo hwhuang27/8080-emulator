@@ -610,7 +610,7 @@ int Emulate8080Op(State8080 *state)
     case 0x3b:
         UnimplementedInstruction(state);
         break;
-    case 0x3c:
+    case 0x3c:  // INR A
         UnimplementedInstruction(state);
         break;
     case 0x3d:
@@ -1082,8 +1082,13 @@ int Emulate8080Op(State8080 *state)
         UnimplementedInstruction(state);
         break;
 
-    case 0xc0:
-        UnimplementedInstruction(state);
+    case 0xc0:  // RNZ
+        if (state->cc.z == 0)
+        {
+            uint16_t ret = (state->memory[state->sp + 1] << 8) | state->memory[state->sp];
+            state->pc = ret;
+            state->sp += 2;
+        }
         break;
     case 0xc1: // 	POP B
         state->c = state->memory[state->sp];
@@ -1099,8 +1104,17 @@ int Emulate8080Op(State8080 *state)
     case 0xc3:  // JMP adr
         state->pc = (opcode[2] << 8) | opcode[1];
         break;
-    case 0xc4:
-        UnimplementedInstruction(state);
+    case 0xc4:  // CNZ adr
+        if (state->cc.z == 0){
+            uint16_t ret = state->pc + 2;
+            state->memory[state->sp - 1] = (ret >> 8) & 0xff; // shift 8 bits FIRST then mask to fit into memory
+            state->memory[state->sp - 2] = (ret & 0xff);
+            state->sp -= 2;
+            state->pc = (opcode[2] << 8) | (opcode[1]);
+        }
+        else{
+            state->pc += 2;
+        }
         break;
     case 0xc5:
         state->memory[state->sp - 2] = state->c;
@@ -1121,8 +1135,13 @@ int Emulate8080Op(State8080 *state)
     case 0xc7:  // RST 0
         UnimplementedInstruction(state);
         break;
-    case 0xc8:
-        UnimplementedInstruction(state);
+    case 0xc8:  // RZ
+        if (state->cc.z == 1)
+        {
+            uint16_t ret = (state->memory[state->sp + 1] << 8) | state->memory[state->sp];
+            state->pc = ret;
+            state->sp += 2;
+        }
         break;
     case 0xc9:  // RET
         {
@@ -1141,8 +1160,17 @@ int Emulate8080Op(State8080 *state)
     case 0xcb:
         UnimplementedInstruction(state);
         break;
-    case 0xcc:
-        UnimplementedInstruction(state);
+    case 0xcc:  // CZ adr
+        if (state->cc.z == 1){
+            uint16_t ret = state->pc + 2;
+            state->memory[state->sp - 1] = (ret >> 8) & 0xff; // shift 8 bits FIRST then mask to fit into memory
+            state->memory[state->sp - 2] = (ret & 0xff);
+            state->sp -= 2;
+            state->pc = (opcode[2] << 8) | (opcode[1]);
+        }
+        else{
+            state->pc += 2;
+        }
         break;
     case 0xcd:  // CALL adr
     #ifdef FOR_CPUDIAG
@@ -1188,8 +1216,13 @@ int Emulate8080Op(State8080 *state)
         UnimplementedInstruction(state);
         break;
 
-    case 0xd0:
-        UnimplementedInstruction(state);
+    case 0xd0:  // RNC
+        if (state->cc.cy == 0)
+        {
+            uint16_t ret = (state->memory[state->sp + 1] << 8) | state->memory[state->sp];
+            state->pc = ret;
+            state->sp += 2;
+        }
         break;
     case 0xd1: //   POP D
         state->e = state->memory[state->sp];
@@ -1206,8 +1239,19 @@ int Emulate8080Op(State8080 *state)
         // Special operation, skip for now
         state->pc += 1;
         break;
-    case 0xd4:
-        UnimplementedInstruction(state);
+    case 0xd4:  // CNC adr
+        if (state->cc.cy == 0)
+        {
+            uint16_t ret = state->pc + 2;
+            state->memory[state->sp - 1] = (ret >> 8) & 0xff; // shift 8 bits FIRST then mask to fit into memory
+            state->memory[state->sp - 2] = (ret & 0xff);
+            state->sp -= 2;
+            state->pc = (opcode[2] << 8) | (opcode[1]);
+        }
+        else
+        {
+            state->pc += 2;
+        }
         break;
     case 0xd5: // 	PUSH D
         state->memory[state->sp - 2] = state->e;
@@ -1216,21 +1260,26 @@ int Emulate8080Op(State8080 *state)
         break;
     case 0xd6:  // SUI D8
     {
-        uint8_t result = state->a - opcode[1];
-        state->cc.z = (result == 0);
-        state->cc.s = ((result & 0x80) == 0x80);
+        uint16_t result = (uint16_t)state->a - (uint16_t)opcode[1];
+        state->cc.z = ((result & 0xff) == 0);
+        state->cc.s = ((result & 0x80) != 0);
         state->cc.p = parity(result, 8);
-        state->cc.cy = 0;
+        state->cc.cy = (result > 0xff);
         state->cc.ac = 0;
-        state->a = result;
+        state->a = result & 0xff;
         state->pc += 1;
     }
         break;
     case 0xd7:  // RST 2
         UnimplementedInstruction(state);
         break;
-    case 0xd8:
-        UnimplementedInstruction(state);
+    case 0xd8:  // RC
+        if (state->cc.cy == 1)
+        {
+            uint16_t ret = (state->memory[state->sp + 1] << 8) | state->memory[state->sp];
+            state->pc = ret;
+            state->sp += 2;
+        }
         break;
     case 0xd9:
         UnimplementedInstruction(state);
@@ -1245,11 +1294,16 @@ int Emulate8080Op(State8080 *state)
         UnimplementedInstruction(state);
         break;
     case 0xdc:  // CC adr
-        UnimplementedInstruction(state);
-        // if(state->cc.cy == 1)
-
-        // else
-        //     state->pc += 2;
+        if(state->cc.cy == 1){
+            uint16_t ret = state->pc + 2;
+            state->memory[state->sp - 1] = (ret >> 8) & 0xff; // shift 8 bits FIRST then mask to fit into memory
+            state->memory[state->sp - 2] = (ret & 0xff);
+            state->sp -= 2;
+            state->pc = (opcode[2] << 8) | (opcode[1]);
+        }
+        else{
+            state->pc += 2;
+        }
         break;
     case 0xdd:
         UnimplementedInstruction(state);
@@ -1270,8 +1324,12 @@ int Emulate8080Op(State8080 *state)
         UnimplementedInstruction(state);
         break;
 
-    case 0xe0:
-        UnimplementedInstruction(state);
+    case 0xe0:  // RPO
+        if (state->cc.p == 0){
+            uint16_t ret = (state->memory[state->sp + 1] << 8) | state->memory[state->sp];
+            state->pc = ret;
+            state->sp += 2;
+        }
         break;
     case 0xe1: // POP H
         state->l = state->memory[state->sp];
@@ -1287,8 +1345,17 @@ int Emulate8080Op(State8080 *state)
     case 0xe3:
         UnimplementedInstruction(state);
         break;
-    case 0xe4:
-        UnimplementedInstruction(state);
+    case 0xe4:  // CPO adr
+        if (state->cc.p == 0){
+            uint16_t ret = state->pc + 2;
+            state->memory[state->sp - 1] = (ret >> 8) & 0xff; // shift 8 bits FIRST then mask to fit into memory
+            state->memory[state->sp - 2] = (ret & 0xff);
+            state->sp -= 2;
+            state->pc = (opcode[2] << 8) | (opcode[1]);
+        }
+        else{
+            state->pc += 2;
+        }
         break;
     case 0xe5: // 	PUSH H
         state->memory[state->sp - 2] = state->l;
@@ -1309,8 +1376,12 @@ int Emulate8080Op(State8080 *state)
     case 0xe7:  // RST 4
         UnimplementedInstruction(state);
         break;
-    case 0xe8:
-        UnimplementedInstruction(state);
+    case 0xe8:  // RPE
+        if(state->cc.p == 1){
+            uint16_t ret = (state->memory[state->sp + 1] << 8) | state->memory[state->sp];
+            state->pc = ret;
+            state->sp += 2;
+        }
         break;
     case 0xe9:
         UnimplementedInstruction(state);
@@ -1332,8 +1403,17 @@ int Emulate8080Op(State8080 *state)
         state->e = temp;
     }
         break;
-    case 0xec:
-        UnimplementedInstruction(state);
+    case 0xec:  // CPE adr
+        if (state->cc.p == 1){
+            uint16_t ret = state->pc + 2;
+            state->memory[state->sp - 1] = (ret >> 8) & 0xff; // shift 8 bits FIRST then mask to fit into memory
+            state->memory[state->sp - 2] = (ret & 0xff);
+            state->sp -= 2;
+            state->pc = (opcode[2] << 8) | (opcode[1]);
+        }
+        else{
+            state->pc += 2;
+        }
         break;
     case 0xed:
         UnimplementedInstruction(state);
@@ -1354,8 +1434,12 @@ int Emulate8080Op(State8080 *state)
         UnimplementedInstruction(state);
         break;
 
-    case 0xf0:
-        UnimplementedInstruction(state);
+    case 0xf0:  // RP
+        if (state->cc.s == 0){
+            uint16_t ret = (state->memory[state->sp + 1] << 8) | state->memory[state->sp];
+            state->pc = ret;
+            state->sp += 2;
+        }
         break;
     case 0xf1:  // POP PSW
     {        
@@ -1378,8 +1462,17 @@ int Emulate8080Op(State8080 *state)
     case 0xf3:  // DI
         state->int_enable = 0;
         break;
-    case 0xf4:
-        UnimplementedInstruction(state);
+    case 0xf4:  // CP adr
+        if (state->cc.s == 0){
+            uint16_t ret = state->pc + 2;
+            state->memory[state->sp - 1] = (ret >> 8) & 0xff; // shift 8 bits FIRST then mask to fit into memory
+            state->memory[state->sp - 2] = (ret & 0xff);
+            state->sp -= 2;
+            state->pc = (opcode[2] << 8) | (opcode[1]);
+        }
+        else{
+            state->pc += 2;
+        }
         break;
     case 0xf5: // 	PUSH PSW
     {
@@ -1410,8 +1503,12 @@ int Emulate8080Op(State8080 *state)
     case 0xf7:  // RST 6
         UnimplementedInstruction(state);
         break;
-    case 0xf8:
-        UnimplementedInstruction(state);
+    case 0xf8:  // RM
+        if (state->cc.s == 1){
+            uint16_t ret = (state->memory[state->sp + 1] << 8) | state->memory[state->sp];
+            state->pc = ret;
+            state->sp += 2;
+        }
         break;
     case 0xf9:
         UnimplementedInstruction(state);
@@ -1425,8 +1522,17 @@ int Emulate8080Op(State8080 *state)
     case 0xfb:  // EI
         state->int_enable = 1;
         break;
-    case 0xfc:
-        UnimplementedInstruction(state);
+    case 0xfc:  // CM adr
+        if (state->cc.s == 1){
+            uint16_t ret = state->pc + 2;
+            state->memory[state->sp - 1] = (ret >> 8) & 0xff; // shift 8 bits FIRST then mask to fit into memory
+            state->memory[state->sp - 2] = (ret & 0xff);
+            state->sp -= 2;
+            state->pc = (opcode[2] << 8) | (opcode[1]);
+        }
+        else{
+            state->pc += 2;
+        }
         break;
     case 0xfd:
         UnimplementedInstruction(state);
