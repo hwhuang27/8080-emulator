@@ -355,11 +355,20 @@ int Emulate8080Op(State8080 *state)
         state->b = opcode[2];
         state->pc += 2;
         break;
-    case 0x02:
-        UnimplementedInstruction(state);
+    case 0x02:  // STAX B
+    {
+        uint16_t offset = (state->b << 8) | state->c;
+        state->memory[offset] = state->a;
+    }
         break;
     case 0x03:  // INX B
-        UnimplementedInstruction(state);
+    {
+        uint16_t bc = (state->b << 8) | (state->c);
+        bc += 1;
+        state->b = (bc >> 8) & 0xff;
+        state->c = bc & 0xff;
+    }
+    break;
         break;
     case 0x04:  // INR B
     {
@@ -386,8 +395,12 @@ int Emulate8080Op(State8080 *state)
         state->b = opcode[1];
         state->pc += 1;
         break;
-    case 0x07:
-        UnimplementedInstruction(state);
+    case 0x07:  // RLC
+    {
+        uint8_t x = state->a;
+        state->a = ((x & 0x80) >> 7) | x << 1;
+        state->cc.cy = (x & 0x80) != 0;
+    }
         break;
     case 0x08: 
         // Undocumented NOP
@@ -402,11 +415,19 @@ int Emulate8080Op(State8080 *state)
         state->cc.cy = ((answer & 0xffff0000) != 0);
     }
         break;
-    case 0x0a:
-        UnimplementedInstruction(state);
+    case 0x0a:  // LDAX B
+    {
+        uint16_t offset = (state->b << 8) | state->c;
+        state->a = state->memory[offset];
+    }
         break;
-    case 0x0b:
-        UnimplementedInstruction(state);
+    case 0x0b:  // DCX B
+    {
+        uint16_t bc = (state->b << 8) | (state->c);
+        bc -= 1;
+        state->b = (bc >> 8) & 0xff;
+        state->c = bc & 0xff;
+    }
         break;
     case 0x0c:  // INR C
     {
@@ -447,8 +468,11 @@ int Emulate8080Op(State8080 *state)
         state->e = opcode[1];
         state->pc += 2;
         break;
-    case 0x12:
-        UnimplementedInstruction(state);
+    case 0x12:  // STAX D
+    {
+        uint16_t offset = (state->d << 8) | state->e;
+        state->memory[offset] = state->a;
+    }
         break;
     case 0x13: // 	INX D
     {
@@ -482,8 +506,12 @@ int Emulate8080Op(State8080 *state)
         state->d = opcode[1];
         state->pc += 1;
         break;
-    case 0x17:
-        UnimplementedInstruction(state);
+    case 0x17:  // RAL
+    {
+        uint8_t x = state->a;
+        state->a = state->cc.cy | x << 1;
+        state->cc.cy = (x & 0x80) != 0;
+    }
         break;
     case 0x18:
         // Undocumented NOP
@@ -504,8 +532,13 @@ int Emulate8080Op(State8080 *state)
         state->a = state->memory[offset];
     }
         break;
-    case 0x1b:
-        UnimplementedInstruction(state);
+    case 0x1b:  // DCX D
+    {
+        uint16_t de = (state->d << 8) | (state->e);
+        de -= 1;
+        state->d = (de >> 8) & 0xff;
+        state->e = de & 0xff;
+    }
         break;
     case 0x1c:  // INR E
     {
@@ -531,8 +564,12 @@ int Emulate8080Op(State8080 *state)
         state->e = opcode[1];
         state->pc += 1;
         break;
-    case 0x1f:
-        UnimplementedInstruction(state);
+    case 0x1f:  // RAR
+    {
+        uint8_t x = state->a;
+        state->a = (x & 0x80) | x >> 1;
+        state->cc.cy = (x & 0x01) != 0;
+    }
         break;
 
     case 0x20:  
@@ -543,8 +580,13 @@ int Emulate8080Op(State8080 *state)
         state->l = opcode[1];
         state->pc += 2;
         break;
-    case 0x22:
-        UnimplementedInstruction(state);
+    case 0x22:  // SHLD adr
+    {
+        uint16_t offset = (opcode[2] << 8) | opcode[1];
+        state->memory[offset] = state->l;
+        state->memory[offset + 1] = state->h;
+        state->pc += 2;
+    }
         break;
     case 0x23: // INX H
         {
@@ -593,11 +635,21 @@ int Emulate8080Op(State8080 *state)
             state->cc.cy = ((answer & 0xffff0000) != 0);
         }
         break;
-    case 0x2a:
-        UnimplementedInstruction(state);
+    case 0x2a:  // LHLD adr
+    {
+        uint16_t offset = (opcode[2] << 8) | opcode[1];
+        state->l = state->memory[offset];
+        state->h = state->memory[offset+1];
+        state->pc += 2;
+    }
         break;
-    case 0x2b:
-        UnimplementedInstruction(state);
+    case 0x2b:  // DCX H
+    {
+        uint16_t hl = (state->h << 8) | state->l;
+        hl -= 1;
+        state->h = (hl >> 8) & 0xff;
+        state->l = hl & 0xff;
+    }
         break;
     case 0x2c:  // INR L
     {
@@ -641,8 +693,7 @@ int Emulate8080Op(State8080 *state)
     }
         break;
     case 0x33:  // INX SP
-        UnimplementedInstruction(state);
-        // state->sp += 1;
+        state->sp += 1;
         break;
     case 0x34:  // INR M
     {
@@ -673,14 +724,20 @@ int Emulate8080Op(State8080 *state)
             state->pc += 1;
         }
         break;
-    case 0x37:
-        UnimplementedInstruction(state);
+    case 0x37:  // STC
+        state->cc.cy = 1;
         break;
     case 0x38:
         // Undocumented NOP
         break;
-    case 0x39:
-        UnimplementedInstruction(state);
+    case 0x39:  // DAD SP
+    {
+        uint32_t hl = (state->h << 8) | state->l;
+        uint32_t answer = hl + state->sp;
+        state->h = (answer & 0xff00) >> 8;
+        state->l = answer & 0xff;
+        state->cc.cy = ((answer & 0xffff0000) != 0);
+    }
         break;
     case 0x3a:  // LDA adr
     {
@@ -689,8 +746,8 @@ int Emulate8080Op(State8080 *state)
         state->pc += 2;
     }
         break;
-    case 0x3b:
-        UnimplementedInstruction(state);
+    case 0x3b:  // DCX SP
+        state->sp -= 1;
         break;
     case 0x3c:  // INR A
     {
@@ -716,8 +773,8 @@ int Emulate8080Op(State8080 *state)
         state->a = opcode[1];
         state->pc += 1;
         break;
-    case 0x3f:  
-        UnimplementedInstruction(state);
+    case 0x3f:  // CMC
+        state->cc.cy = !state->cc.cy;
         break;
 
     case 0x40:  // MOV B,B
@@ -1710,14 +1767,16 @@ int Emulate8080Op(State8080 *state)
         break;
     case 0xcd:  // CALL adr
     #ifdef FOR_CPUDIAG
-        /* Code from Emulator101 to print cpudiag specific calls to CP/M OS*/
+        /* Code from Emulator101 to print cpudiag specific calls */
         if (5 == ((opcode[2] << 8) | opcode[1])){
             if (state->c == 9){
                 uint16_t offset = (state->d << 8) | (state->e);
                 char *str = &state->memory[offset + 3];
+                printf("\t\t *****");
                 while (*str != '$')
                     printf("%c", *str++);
-                printf("\n");
+                printf(" ***** \n");
+                exit(0);
             }
             else if (state->c == 2){
                 printf("print char routine called\n");
@@ -1878,8 +1937,15 @@ int Emulate8080Op(State8080 *state)
         else
             state->pc += 2;
         break;
-    case 0xe3:
-        UnimplementedInstruction(state);
+    case 0xe3:  // XTHL
+    {
+        uint8_t temp_h = state->h;
+        uint8_t temp_l = state->l;
+        state->h = state->memory[state->sp + 1];
+        state->l = state->memory[state->sp];
+        state->memory[state->sp + 1] = temp_h;
+        state->memory[state->sp] = temp_l;
+    }
         break;
     case 0xe4:  // CPO adr
         if (state->cc.p == 0){
@@ -1919,8 +1985,12 @@ int Emulate8080Op(State8080 *state)
             state->sp += 2;
         }
         break;
-    case 0xe9:
-        UnimplementedInstruction(state);
+    case 0xe9:  // PCHL
+        // UnimplementedInstruction(state);
+    {
+        uint16_t offset = (state->h) << 8 | state->l;
+        state->pc = offset;
+    }
         break;
     case 0xea:  // JPE adr
         if(state->cc.p == 1)
@@ -2046,8 +2116,11 @@ int Emulate8080Op(State8080 *state)
             state->sp += 2;
         }
         break;
-    case 0xf9:
-        UnimplementedInstruction(state);
+    case 0xf9:  // SPHL
+    {
+        uint16_t hl = (state->h << 8) | state->l;
+        state->sp = hl;
+    }
         break;
     case 0xfa:  // JM
         if (state->cc.s == 1)
@@ -2138,7 +2211,11 @@ int main(int argc, char**argv){
     // ReadFileIntoMemoryAt(state, "invaders.g", 0x800);
     // ReadFileIntoMemoryAt(state, "invaders.f", 0x1000);
     // ReadFileIntoMemoryAt(state, "invaders.e", 0x1800);
-    
+    // while (done == 0)
+    // {
+    //     done = Emulate8080Op(state);
+    // }
+
     /* Load cpudiag.bin */
     ReadFileIntoMemoryAt(state, "cpudiag.bin", 0x100);
 
