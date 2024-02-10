@@ -1,8 +1,12 @@
 # Intel 8080 CPU Emulator
 
 # References
-- Implemented with 8080 guide on emulator101 (http://emulator101.com)
+- Implemented with 8080 guide on Emulator101 (http://emulator101.com)
 
 - Opcodes for 8080 reference sheet (http://www.emulator101.com/reference/8080-by-opcode.html)
 
-- Intel 8080 Microcomputer Systems User Manual scan (http://bitsavers.trailing-edge.com/components/intel/MCS80/98-153B_Intel_8080_Microcomputer_Systems_Users_Manual_197509.pdf)
+- Intel 8080 Microcomputer Systems User Manual (http://bitsavers.trailing-edge.com/components/intel/MCS80/98-153B_Intel_8080_Microcomputer_Systems_Users_Manual_197509.pdf)
+
+- cpudiag program for testing 8080 instructions (https://brainwagon.org/2011/09/08/more-on-my-8080-emulator/)
+
+- Pretty 8080 Assembler (https://caglrc.cc/~svo/i8080/)
