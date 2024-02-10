@@ -1,8 +1,8 @@
 # Intel 8080 CPU Emulator
 
-Compile with `gcc emulator8080.c -o emu8080`.
+Compile with `gcc emulator8080.c -o emu8080`
 
-Run the cpudiag exerciser test with `./emu8080`.
+Run the cpudiag exerciser test with `./emu8080`
 
 Implemented instructions by cross-referencing the assembly code with `cpudiag.asm` copy-pasted into Pretty 8080 Assembler and the 8080 Reference sheet at Emulator101.
 
