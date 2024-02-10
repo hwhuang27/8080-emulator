@@ -2,7 +2,7 @@
 #include<stdlib.h>
 #include<stdint.h>
 #define FOR_CPUDIAG 1;
-
+/* Emulator starts on line 343 */
 typedef struct ConditionCodes
 {
     uint8_t z : 1;
@@ -622,6 +622,8 @@ int Emulate8080Op(State8080 *state)
         break;
     case 0x27:  // DAA - special
         UnimplementedInstruction(state);
+        // Decimal Adjust Accumulator & AC (auxillary carry) flag not implemented
+        // Tests from cpudiag are skipped
         break;
     case 0x28:
         // Undocumented NOP
