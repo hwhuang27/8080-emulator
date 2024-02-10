@@ -31,9 +31,11 @@ typedef struct State8080
 
 int Disassemble8080Op(unsigned char *codebuffer, int pc)
 {
-    // *codebuffer is a valid pointer to 8080 assembly code
-    // pc is the current offset into the code
-    // returns the number of bytes of the op
+/*
+    *codebuffer is a valid pointer to 8080 assembly code
+    pc is the current offset into the code
+    returns the number of bytes of the op 
+*/
     unsigned char *code = &codebuffer[pc];    
     int opbytes = 1;    
     printf ("%04x ", pc);    
@@ -318,7 +320,6 @@ int Disassemble8080Op(unsigned char *codebuffer, int pc)
         case 0xfe: printf("CPI  #$%02x", code[1]); opbytes=2; break;
         case 0xff: printf("RST  7"); break;
     }
-
     return opbytes;    
 }
 
@@ -341,7 +342,6 @@ int parity(int x, int size){
 
 int Emulate8080Op(State8080 *state)
 {
-    int cycles = 4;
     unsigned char *opcode = &state->memory[state->pc];
     Disassemble8080Op(state->memory, state->pc);
     state->pc += 1;
@@ -620,7 +620,7 @@ int Emulate8080Op(State8080 *state)
         state->h = opcode[1];
         state->pc += 1;
         break;
-    case 0x27:
+    case 0x27:  // DAA - special
         UnimplementedInstruction(state);
         break;
     case 0x28:
@@ -1347,8 +1347,16 @@ int Emulate8080Op(State8080 *state)
         state->a = answer & 0xff;
     }
         break;
-    case 0xa0:
-        UnimplementedInstruction(state);
+    case 0xa0:  // ANA B
+    {
+        uint8_t result = state->a & state->b;
+        state->cc.z = (result == 0);
+        state->cc.s = ((result & 0x80) != 0);
+        state->cc.p = parity(result, 8);
+        state->cc.cy = 0;
+        state->cc.ac = 0;
+        state->a = result;
+    }
         break;
     case 0xa1:  // ANA C
     {
@@ -1671,8 +1679,14 @@ int Emulate8080Op(State8080 *state)
         state->cc.cy = (state->a < result);
     }
         break;
-    case 0xbf:
-        UnimplementedInstruction(state);
+    case 0xbf:  // CMP A
+    {
+        uint8_t result = state->a - state->a;
+        state->cc.z = (result == 0);
+        state->cc.s = ((result & 0x80) == 0x80);
+        state->cc.p = parity(result, 8);
+        state->cc.cy = (state->a < result);
+    }
         break;
 
     case 0xc0:  // RNZ
@@ -1726,7 +1740,13 @@ int Emulate8080Op(State8080 *state)
     }
         break;
     case 0xc7:  // RST 0
-        UnimplementedInstruction(state);
+    {
+        uint16_t ret = state->pc + 2;
+        state->memory[state->sp - 1] = (ret >> 8) & 0xff;
+        state->memory[state->sp - 2] = (ret & 0xff);
+        state->sp -= 2;
+        state->pc = 0x0;
+    }
         break;
     case 0xc8:  // RZ
         if (state->cc.z == 1)
@@ -1750,8 +1770,7 @@ int Emulate8080Op(State8080 *state)
             state->pc += 2;
         
         break;
-    case 0xcb:
-        UnimplementedInstruction(state);
+    case 0xcb:  // Undocumented JMP
         break;
     case 0xcc:  // CZ adr
         if (state->cc.z == 1){
@@ -1808,7 +1827,13 @@ int Emulate8080Op(State8080 *state)
     }
         break;
     case 0xcf:  // RST 1
-        UnimplementedInstruction(state);
+    {
+        uint16_t ret = state->pc + 2;
+        state->memory[state->sp - 1] = (ret >> 8) & 0xff;
+        state->memory[state->sp - 2] = (ret & 0xff);
+        state->sp -= 2;
+        state->pc = 0x8;
+    }
         break;
 
     case 0xd0:  // RNC
@@ -1830,8 +1855,7 @@ int Emulate8080Op(State8080 *state)
         else
             state->pc += 2;
         break;
-    case 0xd3: //	OUT D8
-        // Special operation, skip for now
+    case 0xd3: //	OUT D8 - special
         state->pc += 1;
         break;
     case 0xd4:  // CNC adr
@@ -1866,7 +1890,13 @@ int Emulate8080Op(State8080 *state)
     }
         break;
     case 0xd7:  // RST 2
-        UnimplementedInstruction(state);
+    {
+        uint16_t ret = state->pc + 2;
+        state->memory[state->sp - 1] = (ret >> 8) & 0xff;
+        state->memory[state->sp - 2] = (ret & 0xff);
+        state->sp -= 2;
+        state->pc = 0x10;
+    }
         break;
     case 0xd8:  // RC
         if (state->cc.cy == 1)
@@ -1876,8 +1906,7 @@ int Emulate8080Op(State8080 *state)
             state->sp += 2;
         }
         break;
-    case 0xd9:
-        UnimplementedInstruction(state);
+    case 0xd9:  // Undocumented RET
         break;
     case 0xda:  // JC adr
         if(state->cc.cy == 1)
@@ -1885,8 +1914,8 @@ int Emulate8080Op(State8080 *state)
         else 
             state->pc += 2;
         break;
-    case 0xdb:
-        UnimplementedInstruction(state);
+    case 0xdb:  // IN D8 - special
+        state->pc += 1;
         break;
     case 0xdc:  // CC adr
         if(state->cc.cy == 1){
@@ -1900,8 +1929,7 @@ int Emulate8080Op(State8080 *state)
             state->pc += 2;
         }
         break;
-    case 0xdd:
-        UnimplementedInstruction(state);
+    case 0xdd: // Undocumented CALL
         break;
     case 0xde:  // SBI D8
     {
@@ -1916,7 +1944,13 @@ int Emulate8080Op(State8080 *state)
     }
         break;
     case 0xdf:  // RST 3
-        UnimplementedInstruction(state);
+    {
+        uint16_t ret = state->pc + 2;
+        state->memory[state->sp - 1] = (ret >> 8) & 0xff;
+        state->memory[state->sp - 2] = (ret & 0xff);
+        state->sp -= 2;
+        state->pc = 0x18;
+    }
         break;
 
     case 0xe0:  // RPO
@@ -1976,7 +2010,13 @@ int Emulate8080Op(State8080 *state)
     }
         break;
     case 0xe7:  // RST 4
-        UnimplementedInstruction(state);
+    {
+        uint16_t ret = state->pc + 2;
+        state->memory[state->sp - 1] = (ret >> 8) & 0xff;
+        state->memory[state->sp - 2] = (ret & 0xff);
+        state->sp -= 2;
+        state->pc = 0x20;
+    }
         break;
     case 0xe8:  // RPE
         if(state->cc.p == 1){
@@ -1986,7 +2026,6 @@ int Emulate8080Op(State8080 *state)
         }
         break;
     case 0xe9:  // PCHL
-        // UnimplementedInstruction(state);
     {
         uint16_t offset = (state->h) << 8 | state->l;
         state->pc = offset;
@@ -2021,8 +2060,7 @@ int Emulate8080Op(State8080 *state)
             state->pc += 2;
         }
         break;
-    case 0xed:
-        UnimplementedInstruction(state);
+    case 0xed: // Undocumented CALL
         break;
     case 0xee:  // XRI D8
     {
@@ -2037,7 +2075,13 @@ int Emulate8080Op(State8080 *state)
     }
         break;
     case 0xef:  // RST 5
-        UnimplementedInstruction(state);
+    {
+        uint16_t ret = state->pc + 2;
+        state->memory[state->sp - 1] = (ret >> 8) & 0xff;
+        state->memory[state->sp - 2] = (ret & 0xff);
+        state->sp -= 2;
+        state->pc = 0x28;
+    }
         break;
 
     case 0xf0:  // RP
@@ -2107,7 +2151,13 @@ int Emulate8080Op(State8080 *state)
     }   
         break;
     case 0xf7:  // RST 6
-        UnimplementedInstruction(state);
+    {
+        uint16_t ret = state->pc + 2;
+        state->memory[state->sp - 1] = (ret >> 8) & 0xff;
+        state->memory[state->sp - 2] = (ret & 0xff);
+        state->sp -= 2;
+        state->pc = 0x30;
+    }
         break;
     case 0xf8:  // RM
         if (state->cc.s == 1){
@@ -2143,8 +2193,7 @@ int Emulate8080Op(State8080 *state)
             state->pc += 2;
         }
         break;
-    case 0xfd:
-        UnimplementedInstruction(state);
+    case 0xfd:  // Undocumented CALL
         break;
     case 0xfe: // 	CPI D8
     {
@@ -2157,9 +2206,14 @@ int Emulate8080Op(State8080 *state)
     }
         break;
     case 0xff:  // RST 7
-        UnimplementedInstruction(state);
+    {
+        uint16_t ret = state->pc + 2;
+        state->memory[state->sp - 1] = (ret >> 8) & 0xff;
+        state->memory[state->sp - 2] = (ret & 0xff);
+        state->sp -= 2;
+        state->pc = 0x38;
+    }
         break;
-
     } // end of switch
 
     /* Print current CPU state*/
@@ -2203,7 +2257,6 @@ State8080* Init8080(){
 
 int main(int argc, char**argv){
     int done = 0;
-    int vblankcycles = 0;
     State8080* state = Init8080();
 
     /* Load Space Invaders into memory */
@@ -2211,34 +2264,23 @@ int main(int argc, char**argv){
     // ReadFileIntoMemoryAt(state, "invaders.g", 0x800);
     // ReadFileIntoMemoryAt(state, "invaders.f", 0x1000);
     // ReadFileIntoMemoryAt(state, "invaders.e", 0x1800);
-    // while (done == 0)
-    // {
-    //     done = Emulate8080Op(state);
-    // }
 
     /* Load cpudiag.bin */
     ReadFileIntoMemoryAt(state, "cpudiag.bin", 0x100);
 
-    /* Set first instruction to JMP 0x100 (for cpudiag) */
-    state->memory[0] = 0xc3;
-    state->memory[1] = 0;
+    /* CPUDIAG specific settings */
+    /* Set first instruction to jump to 0x0100 */
+    state->memory[0] = 0xc3;    // JMP
+    state->memory[1] = 0;       // to 0x0100
     state->memory[2] = 0x01;
-    // state->pc = 0x100;   // Alternatively, set pc to 0x100
 
-    // Fix the stack pointer from 0x6ad to 0x7ad
-    state->memory[368] = 0x7;
-
-    /* Skip DAA test */
-    state->memory[0x59c] = 0xc3;
-    state->memory[0x59d] = 0xc2;
+    /* Skip DAA tests */
+    state->memory[0x59c] = 0xc3;    // JMP
+    state->memory[0x59d] = 0xc2;    // to 0x05c2
     state->memory[0x59e] = 0x05;
 
-    /* Disassemble cpudiag (debugging)*/
-    // int pc = 0;
-    // while(pc < 430){
-    //    pc += Disassemble8080Op(state->memory, pc);
-    //    printf("\n");
-    // }
+    // Fix the stack pointer from 0x6ad to 0x7ad
+    // state->memory[368] = 0x7;    // pre-built cpudiag.bin doesn't have this issue
 
     while(done == 0){
         done = Emulate8080Op(state);
